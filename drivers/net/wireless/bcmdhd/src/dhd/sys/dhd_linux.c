@@ -2,7 +2,7 @@
  * Broadcom Dongle Host Driver (DHD), Linux-specific network interface
  * Basically selected code segments from usb-cdc.c and usb-rndis.c
  *
- * Copyright (C) 1999-2015, Broadcom Corporation
+ * Copyright (C) 1999-2016, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_linux.c 543294 2015-03-24 06:10:31Z $
+ * $Id: dhd_linux.c 674875 2016-12-13 05:00:12Z $
  */
 
 #include <typedefs.h>
@@ -4895,8 +4895,9 @@ dhd_init_logstrs_array(dhd_event_log_t *temp)
 	int num_fmts = 0;
 	uint32 i = 0;
 	int error = 0;
-	set_fs(KERNEL_DS);
-	fs = get_fs();
+
+        fs = get_fs();
+        set_fs(KERNEL_DS);
 	filep = filp_open(logstrs_path, O_RDONLY, 0);
 	if (IS_ERR(filep)) {
 		DHD_ERROR(("Failed to open the file logstrs.bin in %s",  __FUNCTION__));

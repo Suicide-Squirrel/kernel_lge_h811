@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2016, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -19,6 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/wakelock.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <linux/atomic.h>
@@ -570,7 +571,18 @@ int audio_aio_release(struct inode *inode, struct file *file)
 	struct q6audio_aio *audio = file->private_data;
 	pr_debug("%s[%p]\n", __func__, audio);
 	mutex_lock(&audio->lock);
+	mutex_lock(&audio->read_lock);
+	mutex_lock(&audio->write_lock);
 	audio->wflush = 1;
+	if (audio->wakelock_voted) {
+		audio->wakelock_voted = false;
+		mutex_lock(&audio->audio_ws_mgr->ws_lock);
+		if ((audio->audio_ws_mgr->ref_cnt > 0) &&
+				(--audio->audio_ws_mgr->ref_cnt == 0)) {
+			pm_relax(audio->miscdevice->this_device);
+		}
+		mutex_unlock(&audio->audio_ws_mgr->ws_lock);
+	}
 	if (audio->enabled)
 		audio_aio_flush(audio);
 	audio->wflush = 0;
@@ -584,6 +596,8 @@ int audio_aio_release(struct inode *inode, struct file *file)
 	wake_up(&audio->event_wait);
 	audio_aio_reset_event_queue(audio);
 	q6asm_audio_client_free(audio->ac);
+	mutex_unlock(&audio->write_lock);
+	mutex_unlock(&audio->read_lock);
 	mutex_unlock(&audio->lock);
 	mutex_destroy(&audio->lock);
 	mutex_destroy(&audio->read_lock);
@@ -1471,6 +1485,34 @@ static long audio_aio_shared_ioctl(struct file *file, unsigned int cmd,
 		mutex_unlock(&audio->lock);
 		break;
 	}
+	case AUDIO_PM_AWAKE: {
+		pr_debug("%s[%p]:AUDIO_PM_AWAKE\n", __func__, audio);
+		mutex_lock(&audio->lock);
+		if (!audio->wakelock_voted) {
+			audio->wakelock_voted = true;
+			mutex_lock(&audio->audio_ws_mgr->ws_lock);
+			if (audio->audio_ws_mgr->ref_cnt++ == 0)
+				pm_stay_awake(audio->miscdevice->this_device);
+			mutex_unlock(&audio->audio_ws_mgr->ws_lock);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
+	case AUDIO_PM_RELAX: {
+		pr_debug("%s[%p]:AUDIO_PM_RELAX\n", __func__, audio);
+		mutex_lock(&audio->lock);
+		if (audio->wakelock_voted) {
+			audio->wakelock_voted = false;
+			mutex_lock(&audio->audio_ws_mgr->ws_lock);
+			if ((audio->audio_ws_mgr->ref_cnt > 0) &&
+					(--audio->audio_ws_mgr->ref_cnt == 0)) {
+				pm_relax(audio->miscdevice->this_device);
+			}
+			mutex_unlock(&audio->audio_ws_mgr->ws_lock);
+		}
+		mutex_unlock(&audio->lock);
+		break;
+	}
 	default:
 		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		rc =  -EINVAL;
@@ -1493,6 +1535,8 @@ static long audio_aio_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_PAUSE:
 	case AUDIO_FLUSH:
 	case AUDIO_GET_SESSION_ID:
+	case AUDIO_PM_AWAKE:
+	case AUDIO_PM_RELAX:
 		rc = audio_aio_shared_ioctl(file, cmd, arg);
 		break;
 	case AUDIO_GET_STATS: {
@@ -1681,7 +1725,11 @@ static long audio_aio_ioctl(struct file *file, unsigned int cmd,
 				__func__);
 			rc = -EFAULT;
 		} else {
+			mutex_lock(&audio->read_lock);
+			mutex_lock(&audio->write_lock);
 			rc = audio_aio_ion_add(audio, &info);
+			mutex_unlock(&audio->write_lock);
+			mutex_unlock(&audio->read_lock);
 		}
 		mutex_unlock(&audio->lock);
 		break;
@@ -1696,7 +1744,11 @@ static long audio_aio_ioctl(struct file *file, unsigned int cmd,
 				__func__);
 			rc = -EFAULT;
 		} else {
+			mutex_lock(&audio->read_lock);
+			mutex_lock(&audio->write_lock);
 			rc = audio_aio_ion_remove(audio, &info);
+			mutex_unlock(&audio->write_lock);
+			mutex_unlock(&audio->read_lock);
 		}
 		mutex_unlock(&audio->lock);
 		break;
@@ -1781,6 +1833,8 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_PAUSE:
 	case AUDIO_FLUSH:
 	case AUDIO_GET_SESSION_ID:
+	case AUDIO_PM_AWAKE:
+	case AUDIO_PM_RELAX:
 		rc = audio_aio_shared_ioctl(file, cmd, arg);
 		break;
 	case AUDIO_GET_STATS_32: {
@@ -1877,6 +1931,7 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_GET_CONFIG_32: {
 		struct msm_audio_config32 cfg_32;
 		mutex_lock(&audio->lock);
+		memset(&cfg_32, 0, sizeof(cfg_32));
 		cfg_32.buffer_size = audio->pcm_cfg.buffer_size;
 		cfg_32.buffer_count = audio->pcm_cfg.buffer_count;
 		cfg_32.channel_count = audio->pcm_cfg.channel_count;
@@ -1996,7 +2051,11 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 		} else {
 			info.fd = info_32.fd;
 			info.vaddr = compat_ptr(info_32.vaddr);
+			mutex_lock(&audio->read_lock);
+			mutex_lock(&audio->write_lock);
 			rc = audio_aio_ion_add(audio, &info);
+			mutex_unlock(&audio->write_lock);
+			mutex_unlock(&audio->read_lock);
 		}
 		mutex_unlock(&audio->lock);
 		break;
@@ -2013,7 +2072,11 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 		} else {
 			info.fd = info_32.fd;
 			info.vaddr = compat_ptr(info_32.vaddr);
+			mutex_lock(&audio->read_lock);
+			mutex_lock(&audio->write_lock);
 			rc = audio_aio_ion_remove(audio, &info);
+			mutex_unlock(&audio->write_lock);
+			mutex_unlock(&audio->read_lock);
 		}
 		mutex_unlock(&audio->lock);
 		break;

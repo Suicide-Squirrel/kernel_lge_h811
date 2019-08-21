@@ -1377,7 +1377,7 @@ static ssize_t store_reg_ctrl(struct spi_device *spi,
 	u32 wdata = 1;
 	u32 rdata;
 
-	if (sscanf(buf, "%s %x %d", command, &reg, &value) <= 0)
+	if (sscanf(buf, "%5s %x %d", command, &reg, &value) <= 0)
 		return count;
 
 	if (!strcmp(command, "write")) {
@@ -1473,7 +1473,7 @@ static ssize_t store_object_report(struct spi_device *spi,
 	u8 object_report_enable_reg_new;
 	u32 wdata = 0;
 
-	if (sscanf(buf, "%s %hhu", select, &value) <= 0)
+	if (sscanf(buf, "%15s %hhu", select, &value) <= 0)
 		return count;
 
 	if ((strlen(select) > 5) || (value > 1)) {
@@ -1584,6 +1584,7 @@ static void write_file(char *filename, char *data, int time, int append)
 			fd = sys_open(fname, O_WRONLY|O_CREAT, 0666);
 	} else {
 		TOUCH_E("%s : fname is NULL, can not open FILE\n", __func__);
+		set_fs(old_fs);
 		return;
 	}
 

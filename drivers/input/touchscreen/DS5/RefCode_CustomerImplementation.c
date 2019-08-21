@@ -221,6 +221,7 @@ void _write_time_log(char *filename, char *data, int data_include)
 		sys_chmod(fname, 0666);
 	} else {
 		TOUCH_E("%s : fname is NULL, can not open FILE\n", __func__);
+		set_fs(old_fs);
 		return;
 	}
 
@@ -293,6 +294,7 @@ int _write_log(char *filename, char *data)
 		} else {
 			TOUCH_E("%s : filename is NULL, can not open FILE\n",
 				__func__);
+			set_fs(old_fs);
 			return -1;
 		}
 
@@ -346,6 +348,7 @@ void read_log(char *filename, const struct touch_platform_data *pdata)
 	buf = kzalloc(1024, GFP_KERNEL);
 	if (buf == NULL) {
 		TOUCH_I("%s : allocation fail\n", __func__);
+		set_fs(old_fs);
 		return;
 	}
 

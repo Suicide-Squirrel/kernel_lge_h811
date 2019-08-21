@@ -1,7 +1,7 @@
 /*
  * Linux cfg80211 driver
  *
- * Copyright (C) 1999-2016, Broadcom Corporation
+ * Copyright (C) 1999-2017, Broadcom Corporation
  * 
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfg80211.c 624318 2016-03-11 05:41:32Z $
+ * $Id: wl_cfg80211.c 682766 2017-02-03 04:38:13Z $
  */
 /* */
 #include <typedefs.h>
@@ -2536,9 +2536,13 @@ wl_run_escan(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 						/* allows only supported channel on
 						*  current reguatory
 						*/
-						if (channel == (dtoh32(list->element[j])))
+						if (n_nodfs >= num_chans) {
+							break;
+						}
+						if (channel == (dtoh32(list->element[j]))) {
 							default_chan_list[n_nodfs++] =
 								channel;
+						}
 					}
 
 				}

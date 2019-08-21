@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -689,7 +689,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_info("%s:+ ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_info("%s:+ ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -698,7 +698,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 #if IS_ENABLED(CONFIG_LGE_DISPLAY_EXTENDED_PANEL)
 	if (pinfo->lge_pan_info.lge_panel_send_on_cmd == false) {
-		pr_info("%s: skip panel  on cmd, ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+		pr_info("%s: skip panel  on cmd, ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
 		goto end;
 	}
 #endif
@@ -748,7 +748,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_info("%s:+ ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_info("%s:+ ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	if (pinfo->dcs_cmd_by_left) {
 		if (ctrl->ndx != DSI_CTRL_LEFT)
@@ -757,7 +757,7 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 
 #if IS_ENABLED(CONFIG_LGE_DISPLAY_EXTENDED_PANEL)
 	if (pinfo->lge_pan_info.lge_panel_send_off_cmd == false) {
-		pr_info("%s: skip panel off cmd, ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+		pr_debug("%s: skip panel off cmd, ctrl=%pK ndx=%d\n", __func__, ctrl, ctrl->ndx);
 		goto end;
 	}
 #endif
@@ -791,7 +791,7 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_info("%s: ctrl=%p ndx=%d enable=%d\n", __func__, ctrl, ctrl->ndx,
+	pr_info("%s: ctrl=%pK ndx=%d enable=%d\n", __func__, ctrl, ctrl->ndx,
 		enable);
 
 	/* Any panel specific low power commands/config */
